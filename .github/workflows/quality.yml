@@ -1,0 +1,52 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          version: "0.12.17"
+      - name: Install locked development dependencies
+        run: uv sync --locked --extra dev
+      - name: Lint
+        run: uv run --no-sync ruff check .
+      - name: Format
+        run: uv run --no-sync ruff format --check .
+      - name: Type check
+        run: >-
+          uv run --no-sync mypy src/turnpilot
+          examples/live_jev_probe.py examples/smoothconv_annotation_probe.py
+          examples/local_audio_runtime_demo.py
+      - name: Tests and branch coverage
+        run: >-
+          uv run --no-sync pytest -q
+          --cov=turnpilot --cov-branch
+          --cov-report=term-missing:skip-covered
+          --cov-fail-under=85
+      - name: Offline CLI smoke test
+        run: uv run --no-sync turnpilot-eval examples/synthetic-manifest.json
+      - name: Synthetic evidence audit smoke test
+        run: uv run --no-sync turnpilot-evidence-audit examples/synthetic-evidence.json
+      - name: Content-free action trace smoke test
+        run: uv run --no-sync turnpilot-action-replay examples/synthetic-action-trace.jsonl --compare-direct-asr
+      - name: Offline background runtime smoke test
+        run: uv run --no-sync python examples/local_audio_runtime_demo.py
+      - name: Build source and wheel distributions
+        run: uv build

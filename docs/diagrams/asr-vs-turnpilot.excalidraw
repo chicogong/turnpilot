@@ -1,0 +1,40 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "appState": {"viewBackgroundColor": "#ffffff", "gridSize": null, "currentItemFontFamily": 8},
+  "files": {},
+  "elements": [
+    {"type":"text","id":"title","x":48,"y":32,"width":1120,"height":46,"text":"ASR final 直连 vs TurnPilot 动作闸门","originalText":"ASR final 直连 vs TurnPilot 动作闸门","fontSize":31,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"text","id":"subtitle","x":50,"y":88,"width":1110,"height":32,"text":"同一事件时钟；只比较决策触发，不模拟 LLM / TTS / 实际播放","originalText":"同一事件时钟；只比较决策触发，不模拟 LLM / TTS / 实际播放","fontSize":21,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#475569"},
+
+    {"type":"rectangle","id":"left-lane","x":42,"y":148,"width":525,"height":566,"backgroundColor":"#e7f5ff","fillStyle":"solid","strokeColor":"#74c0fc","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"rectangle","id":"right-lane","x":619,"y":148,"width":525,"height":566,"backgroundColor":"#f3f0ff","fillStyle":"solid","strokeColor":"#b197fc","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"left-title","x":72,"y":168,"width":450,"height":36,"text":"A · 直接 ASR final 触发","originalText":"A · 直接 ASR final 触发","fontSize":24,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#1864ab"},
+    {"type":"text","id":"right-title","x":648,"y":168,"width":455,"height":36,"text":"B · TurnPilot 可选闸门","originalText":"B · TurnPilot 可选闸门","fontSize":24,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#6741d9"},
+
+    {"type":"rectangle","id":"left-asr","x":91,"y":237,"width":425,"height":91,"backgroundColor":"#c3fae8","fillStyle":"solid","strokeColor":"#2f9e44","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"left-asr-text","x":113,"y":252,"width":385,"height":62,"text":"非空 final ASR 修订到达\n同轮只取第一次","originalText":"非空 final ASR 修订到达\n同轮只取第一次","fontSize":22,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"left-arrow-one","x":303,"y":328,"width":0,"height":63,"points":[[0,0],[0,63]],"strokeColor":"#2f9e44","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"left-commit","x":91,"y":391,"width":425,"height":91,"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#2f9e44","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"left-commit-text","x":113,"y":406,"width":385,"height":62,"text":"立即建议 COMMIT\n不等待声学 / 语义证据","originalText":"立即建议 COMMIT\n不等待声学 / 语义证据","fontSize":22,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"left-arrow-two","x":303,"y":482,"width":0,"height":60,"points":[[0,0],[0,60]],"strokeColor":"#e67700","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"left-risk","x":91,"y":542,"width":425,"height":123,"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f08c00","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"left-risk-text","x":113,"y":556,"width":385,"height":98,"text":"优点：final 一到就触发\n风险：final 可能在续说中到达\n不会判断音质、意图或回应方式","originalText":"优点：final 一到就触发\n风险：final 可能在续说中到达\n不会判断音质、意图或回应方式","fontSize":20,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#78350f"},
+
+    {"type":"rectangle","id":"right-acoustic","x":649,"y":237,"width":215,"height":113,"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"right-acoustic-text","x":667,"y":251,"width":180,"height":88,"text":"声学候选\n续说 → 撤销\n近端打断快路径","originalText":"声学候选\n续说 → 撤销\n近端打断快路径","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"rectangle","id":"right-text","x":899,"y":237,"width":215,"height":113,"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"right-text-text","x":916,"y":251,"width":182,"height":88,"text":"ASR 修订\n可选 Jev 文字分数\n必须同轮、同版本","originalText":"ASR 修订\n可选 Jev 文字分数\n必须同轮、同版本","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"acoustic-to-gate","x":756,"y":350,"width":78,"height":55,"points":[[0,0],[0,30],[78,30],[78,55]],"strokeColor":"#4a9eed","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"arrow","id":"text-to-gate","x":1006,"y":350,"width":-78,"height":55,"points":[[0,0],[0,30],[-78,30],[-78,55]],"strokeColor":"#f59e0b","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"right-gate","x":724,"y":405,"width":333,"height":106,"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"right-gate-text","x":745,"y":415,"width":290,"height":93,"text":"ProvisionalActionGate\n→ TurnPolicy.decide()\n高分 final 提前放行\n否则等至停顿上限","originalText":"ProvisionalActionGate\n→ TurnPolicy.decide()\n高分 final 提前放行\n否则等至停顿上限","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"gate-to-actions","x":890,"y":511,"width":0,"height":34,"points":[[0,0],[0,34]],"strokeColor":"#8b5cf6","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"right-actions","x":679,"y":545,"width":423,"height":120,"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#2f9e44","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"right-actions-text","x":700,"y":560,"width":383,"height":95,"text":"WAIT / COMMIT / CLARIFY / IGNORE\n播放中可 YIELD；宿主仍须复核\n代价：证据晚到或缺失会增加等待","originalText":"WAIT / COMMIT / CLARIFY / IGNORE\n播放中可 YIELD；宿主仍须复核\n代价：证据晚到或缺失会增加等待","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+
+    {"type":"rectangle","id":"footer","x":42,"y":745,"width":1102,"height":115,"backgroundColor":"#fff9db","fillStyle":"solid","strokeColor":"#f08c00","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"footer-text","x":62,"y":759,"width":1060,"height":93,"text":"合成回放：A 建议 2 次 COMMIT（1 次仍在续说）；B 建议 1 次、续说时 0 次。\n首轮 B 在 1360 ms 建议，A 在 1350 ms（晚 10 ms）。展示可撤销决策与延时取舍；真实效果需同钟验证。","originalText":"合成回放：A 建议 2 次 COMMIT（1 次仍在续说）；B 建议 1 次、续说时 0 次。\n首轮 B 在 1360 ms 建议，A 在 1350 ms（晚 10 ms）。展示可撤销决策与延时取舍；真实效果需同钟验证。","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#78350f"}
+  ]
+}

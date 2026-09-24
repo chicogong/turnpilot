@@ -1,0 +1,15 @@
+{"schema":1,"kind":"turn_start","at_ms":0,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{}}
+{"schema":1,"kind":"acoustic","at_ms":1000,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{"speech_active":false,"near_end_speech":false,"echo_likely":false,"speech_duration_ms":900,"pause_duration_ms":320,"audio_quality":"clear"}}
+{"schema":1,"kind":"candidate","at_ms":1000,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{}}
+{"schema":1,"kind":"asr","at_ms":1050,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{"revision":1,"has_text":true,"is_final":false}}
+{"schema":1,"kind":"semantic","at_ms":1060,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{"transcript_revision":1,"complete_probability":0.9,"clarification_probability":0.1,"backchannel_probability":0.0,"response_probability":null}}
+{"schema":1,"kind":"acoustic","at_ms":1320,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{"speech_active":false,"near_end_speech":false,"echo_likely":false,"speech_duration_ms":900,"pause_duration_ms":640,"audio_quality":"clear"}}
+{"schema":1,"kind":"asr","at_ms":1350,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{"revision":1,"has_text":true,"is_final":true}}
+{"schema":1,"kind":"semantic","at_ms":1360,"session_id":"demo-session","turn_id":"turn-1","generation":1,"data":{"transcript_revision":1,"complete_probability":0.9,"clarification_probability":0.1,"backchannel_probability":0.0,"response_probability":null}}
+{"schema":1,"kind":"turn_start","at_ms":2000,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{}}
+{"schema":1,"kind":"acoustic","at_ms":2500,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{"speech_active":false,"near_end_speech":false,"echo_likely":false,"speech_duration_ms":700,"pause_duration_ms":320,"audio_quality":"clear"}}
+{"schema":1,"kind":"candidate","at_ms":2500,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{}}
+{"schema":1,"kind":"acoustic","at_ms":2550,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{"speech_active":true,"near_end_speech":true,"echo_likely":false,"speech_duration_ms":750,"pause_duration_ms":null,"audio_quality":"clear"}}
+{"schema":1,"kind":"asr","at_ms":2600,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{"revision":1,"has_text":true,"is_final":true}}
+{"schema":1,"kind":"semantic","at_ms":2610,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{"transcript_revision":1,"complete_probability":0.9,"clarification_probability":0.1,"backchannel_probability":0.0,"response_probability":null}}
+{"schema":1,"kind":"stop","at_ms":3000,"session_id":"demo-session","turn_id":"turn-2","generation":2,"data":{}}

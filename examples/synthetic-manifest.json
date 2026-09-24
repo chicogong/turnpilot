@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "evidence_level": "synthetic",
+  "cases": [
+    {
+      "case_id": "synthetic-mid-thought-pause",
+      "session_id": "synthetic-session",
+      "turn_id": "synthetic-turn",
+      "generation": 0,
+      "now_ms": 1000,
+      "host": {"session_active": true},
+      "transcript": {"available_at_ms": 900, "revision": 1, "has_text": true},
+      "label": {"is_complete": false, "expected_action": "wait"},
+      "arms": {
+        "A": {"acoustic": {"observed_at_ms": 1000, "speech_active": false, "pause_duration_ms": 320, "audio_quality": "clear"}},
+        "B": {"acoustic": {"observed_at_ms": 1000, "speech_active": false, "pause_duration_ms": 640, "audio_quality": "clear"}},
+        "C": {
+          "acoustic": {"observed_at_ms": 1000, "speech_active": false, "pause_duration_ms": 320, "audio_quality": "clear"},
+          "semantic": {"received_at_ms": 990, "transcript_revision": 1, "complete_probability": 0.95, "clarification_probability": 0.0, "backchannel_probability": 0.0, "response_probability": 0.95, "model": "synthetic"}
+        },
+        "D": {
+          "acoustic": {"observed_at_ms": 1000, "speech_active": false, "pause_duration_ms": 96, "audio_quality": "clear"},
+          "semantic": {"received_at_ms": 990, "transcript_revision": 1, "complete_probability": 0.95, "clarification_probability": 0.0, "backchannel_probability": 0.0, "response_probability": 0.95, "model": "synthetic"}
+        }
+      }
+    }
+  ]
+}

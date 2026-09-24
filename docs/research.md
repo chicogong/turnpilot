@@ -1,0 +1,16 @@
+# Research status
+
+TurnPilot has **not** demonstrated a product-quality improvement. The code is testable, but current public-corpus probes lack the real streaming ASR, assistant playback, speaker/device isolation, and human action labels needed to measure whether an agent should respond.
+
+| Check | What was observed | What it does not establish |
+| --- | --- | --- |
+| Locked conservative acoustic candidate on six previously unseen [SmoothConv](https://huggingface.co/datasets/qualialabsAI/SmoothConv) recordings | Premature acoustic endpoints before continuation were **6/10** for both the candidate and unchanged 640 ms gate; completion P95 was **872 ms** versus **770 ms** in arm-wise matched windows | No transferable acoustic win; small public sample, non-identical latency windows, no device or response-action labels |
+| Independent Mandarin short clips | A local audio end-of-turn score was high on **124/150** complete clips but also **37/150** incomplete clips | Audio completion confidence is not permission for the assistant to reply |
+| Live Jev on 20 real complete + 20 real incomplete [Easy Turn](https://huggingface.co/datasets/ASLP-lab/Easy-Turn-Testset) dataset transcripts | At the existing 0.8 completion threshold, Jev accepted **3/20** complete and **0/20** incomplete; 40/40 calls succeeded | A strong missed-completion tradeoff. These are static dataset transcripts, not streaming ASR; the optional gate and pause fallback were not exercised |
+| Provisional action gate versus a minimal direct-ASR-final trigger on one synthetic two-turn trace | Direct ASR recommended 2 commits (1 during resumed speech); the gate recommended 1 commit, canceled 1 candidate, and was 10 ms later on the first turn | Causal mechanics only; no measured reduction in real wrong responses or perceived latency |
+
+The unchanged policy remains the default. Local audio scoring, the provisional action gate, and Jev are optional research paths. Their thresholds are not calibrated for deployment. In particular, the current Jev threshold cannot be called an improvement over direct ASR: the text-only sample reduced incomplete-text triggers but missed most complete texts, and a full gate could still act at its pause cap. SmoothConv is [CC BY-NC 4.0](https://huggingface.co/datasets/qualialabsAI/SmoothConv); these local research aggregates do not confer commercial-use rights. Public datasets and third-party weights are not redistributed in this repository; check the [upstream terms](../examples/README.md) before obtaining or using them.
+
+The next comparison requires consented continuous conversations with a shared monotonic clock for audio observations, ASR revision availability, and playback events. Human reviewers must label continuation, true completion, speaker/echo origin, clarity, and expected action without looking at model output. Split speakers and devices across development and held-out sets, freeze thresholds before evaluating, and compare the unchanged baseline and candidate at a matched latency budget. Report error counts and completion P50/P95/P99, not just a model score. The [evaluation protocol](evaluation.md) defines the denominators.
+
+This maintained summary supersedes earlier exploratory notes. Neither those snapshots nor the current small public-corpus probes are a production benchmark or release claim.

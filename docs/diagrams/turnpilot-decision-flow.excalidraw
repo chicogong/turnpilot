@@ -1,0 +1,47 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "appState": {"viewBackgroundColor": "#ffffff", "gridSize": null, "currentItemFontFamily": 8},
+  "files": {},
+  "elements": [
+    {"type":"text","id":"title","x":44,"y":35,"width":1120,"height":44,"text":"TurnPilot · 实时对话决策流程","originalText":"TurnPilot · 实时对话决策流程","fontSize":32,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"text","id":"subtitle","x":45,"y":91,"width":1120,"height":30,"text":"可组合的对话决策层：声学 + ASR + Jev + 宿主状态","originalText":"可组合的对话决策层：声学 + ASR + Jev + 宿主状态","fontSize":21,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#475569"},
+
+    {"type":"text","id":"lane-input","x":46,"y":145,"width":240,"height":26,"text":"带时间戳的因果输入","originalText":"带时间戳的因果输入","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+    {"type":"text","id":"lane-evidence","x":357,"y":145,"width":250,"height":26,"text":"声学 / 文字证据分离","originalText":"声学 / 文字证据分离","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+    {"type":"text","id":"lane-policy","x":704,"y":250,"width":225,"height":26,"text":"确定性决策","originalText":"确定性决策","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+    {"type":"text","id":"lane-host","x":1001,"y":250,"width":185,"height":26,"text":"宿主执行","originalText":"宿主执行","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+
+    {"type":"rectangle","id":"audio","x":44,"y":188,"width":222,"height":100,"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"audio-text","x":65,"y":206,"width":182,"height":70,"text":"音频 + 播放状态\nVAD / 回声 / 近端","originalText":"音频 + 播放状态\nVAD / 回声 / 近端","fontSize":20,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"rectangle","id":"acoustic","x":355,"y":181,"width":240,"height":115,"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"acoustic-text","x":376,"y":190,"width":208,"height":100,"text":"本地声学证据\nAdaptiveSpeechGate\n+ 可选音频 EOT\n收尾候选 ≠ 回应","originalText":"本地声学证据\nAdaptiveSpeechGate\n+ 可选音频 EOT\n收尾候选 ≠ 回应","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"audio-to-acoustic","x":266,"y":238,"width":89,"height":0,"points":[[0,0],[89,0]],"strokeColor":"#4a9eed","strokeWidth":3,"endArrowhead":"arrow"},
+
+    {"type":"rectangle","id":"asr","x":44,"y":343,"width":222,"height":92,"backgroundColor":"#c3fae8","fillStyle":"solid","strokeColor":"#16a34a","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"asr-text","x":65,"y":360,"width":182,"height":60,"text":"ASR partial/final\n文字 / 版本 / 时间","originalText":"ASR partial/final\n文字 / 版本 / 时间","fontSize":20,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"rectangle","id":"jev","x":355,"y":338,"width":240,"height":124,"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"jev-text","x":377,"y":355,"width":210,"height":95,"text":"JevJudge · 可选\n文字说完倾向\n超时或旧版 → 丢弃\n不判断音质 / 人声","originalText":"JevJudge · 可选\n文字说完倾向\n超时或旧版 → 丢弃\n不判断音质 / 人声","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"asr-to-jev","x":266,"y":389,"width":89,"height":0,"points":[[0,0],[89,0]],"strokeColor":"#16a34a","strokeWidth":3,"endArrowhead":"arrow"},
+
+    {"type":"rectangle","id":"host-state","x":44,"y":508,"width":222,"height":98,"backgroundColor":"#e5dbff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"host-state-text","x":65,"y":526,"width":183,"height":68,"text":"会话与轮次状态\n话权 / timer\n轮次 ID / 代际","originalText":"会话与轮次状态\n话权 / timer\n轮次 ID / 代际","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+
+    {"type":"rectangle","id":"policy","x":700,"y":298,"width":230,"height":206,"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"policy-text","x":721,"y":318,"width":190,"height":175,"text":"可选 ActionGate\n→ TurnPolicy.decide()\n\n声学 + 文字 + 状态\n最短等待 / 最长截止\n超时 → 本地兜底\n\n只建议，不执行","originalText":"可选 ActionGate\n→ TurnPolicy.decide()\n\n声学 + 文字 + 状态\n最短等待 / 最长截止\n超时 → 本地兜底\n\n只建议，不执行","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"acoustic-to-policy","x":595,"y":238,"width":105,"height":105,"points":[[0,0],[55,0],[55,105],[105,105]],"strokeColor":"#4a9eed","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"arrow","id":"jev-to-policy","x":595,"y":401,"width":105,"height":0,"points":[[0,0],[105,0]],"strokeColor":"#f59e0b","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"arrow","id":"state-to-policy","x":266,"y":558,"width":434,"height":-87,"points":[[0,0],[384,0],[384,-87],[434,-87]],"strokeColor":"#8b5cf6","strokeWidth":3,"endArrowhead":"arrow"},
+
+    {"type":"rectangle","id":"guard","x":1000,"y":314,"width":184,"height":118,"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"guard-text","x":1016,"y":331,"width":152,"height":94,"text":"宿主复核\n时效 / 轮次\n播放 / 会话\n有效才执行","originalText":"宿主复核\n时效 / 轮次\n播放 / 会话\n有效才执行","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"policy-to-guard","x":930,"y":371,"width":70,"height":0,"points":[[0,0],[70,0]],"strokeColor":"#8b5cf6","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"actions","x":984,"y":506,"width":200,"height":111,"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"actions-text","x":1000,"y":524,"width":168,"height":82,"text":"WAIT · COMMIT\nCLARIFY · IGNORE\nYIELD · NUDGE*","originalText":"WAIT · COMMIT\nCLARIFY · IGNORE\nYIELD · NUDGE*","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"guard-to-actions","x":1092,"y":432,"width":0,"height":74,"points":[[0,0],[0,74]],"strokeColor":"#22c55e","strokeWidth":3,"endArrowhead":"arrow"},
+
+    {"type":"rectangle","id":"footer","x":44,"y":663,"width":1140,"height":64,"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1,"roundness":{"type":3}},
+    {"type":"text","id":"footer-text","x":62,"y":679,"width":1104,"height":40,"text":"边界：音频 EOT / Jev / ActionGate 均可选；宿主负责采音、ASR 与执行。*主动询问默认关闭。","originalText":"边界：音频 EOT / Jev / ActionGate 均可选；宿主负责采音、ASR 与执行。*主动询问默认关闭。","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#78350f"}
+  ]
+}

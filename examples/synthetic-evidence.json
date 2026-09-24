@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "evidence_level": "synthetic",
+  "sessions": [
+    {
+      "session_id": "synthetic-session",
+      "split": "development",
+      "speaker_id": "synthetic-speaker",
+      "device_id": "synthetic-device",
+      "source_kind": "synthetic",
+      "permission_ref": "synthetic-example",
+      "audio_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "duration_ms": 3000,
+      "clock": "derived_offline",
+      "capture": {
+        "asr_revisions": true,
+        "playback": true,
+        "near_end_echo": true
+      },
+      "asr_revisions": [
+        {"available_at_ms": 550, "revision": 0, "has_text": true, "is_final": false},
+        {"available_at_ms": 1400, "revision": 1, "has_text": true, "is_final": false},
+        {"available_at_ms": 1900, "revision": 2, "has_text": true, "is_final": true}
+      ],
+      "playback_intervals": [
+        {"start_ms": 800, "end_ms": 950}
+      ],
+      "candidates": [
+        {
+          "candidate_id": "synthetic-complete",
+          "at_ms": 700,
+          "label": {
+            "speech_start_ms": 100,
+            "speech_end_ms": 500,
+            "origin": "near_end_user",
+            "quality": "clear",
+            "is_complete": true,
+            "continuation_at_ms": null,
+            "true_eot_ms": 500,
+            "expected_action": "commit_user_turn",
+            "reviewer_count": 1,
+            "adjudicated": true,
+            "ambiguous": false
+          }
+        },
+        {
+          "candidate_id": "synthetic-incomplete",
+          "at_ms": 1500,
+          "label": {
+            "speech_start_ms": 1000,
+            "speech_end_ms": 1300,
+            "origin": "near_end_user",
+            "quality": "clear",
+            "is_complete": false,
+            "continuation_at_ms": 1800,
+            "true_eot_ms": null,
+            "expected_action": "wait",
+            "reviewer_count": 2,
+            "adjudicated": true,
+            "ambiguous": true
+          }
+        }
+      ]
+    }
+  ]
+}
