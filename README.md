@@ -59,6 +59,20 @@ print(decision.kind.value)  # commit_user_turn
 
 The example uses synthetic observations and makes no network call. Before applying any recommendation, the host must recheck the session, turn/generation, expiry, and action-specific playback state.
 
+## Compare on an audio file
+
+`turnpilot-file-run` feeds an authorized WAV in real-time-paced 32 ms chunks to **local Silero VAD and incremental Vosk ASR**, then compares direct final-ASR, fixed 640 ms, dynamic 640 ms, and the provisional action gate on shared observations. Optional Jev is a bounded, cancelable text-side arm.
+
+```bash
+python -m pip install -e '.[file]'
+turnpilot-file-run corpus/window.wav \
+  --vad-model corpus/models/silero.onnx \
+  --asr-model corpus/models/vosk-model-small-cn-0.22 \
+  --report reports/window.json --trace reports/window.jsonl
+```
+
+Obtain licensed models/audio separately and create `reports/` first. Inputs must be 16 kHz mono PCM16, 32 ms–60 s; output files must not already exist. No microphone capture, automatic downloads, cloud calls, EOF-forced final, or added tail silence. Reports contain timings and flags, **not words or audio**. This is one analysis window, not a multi-turn agent; no human labels means no quality-rate claim. [Setup, optional Jev, and interpretation](docs/file-run.md).
+
 ## Use Jev for text-side judgment
 
 Install the optional dependency with `python -m pip install -e '.[jev]'` and provide `TYPESAFE_API_KEY` through your local environment. This example **explicitly opts in to sending its authored text** to Jev and reads completion and clarification scores:

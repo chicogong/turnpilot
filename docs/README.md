@@ -6,6 +6,7 @@ Start with the [English](../README.md) or [中文](../README.zh-CN.md) README fo
 | --- | --- |
 | Components, ownership, and causal contract | [Architecture](architecture.md) |
 | Provisional endpoint gate and event format | [Standalone action replay](standalone-action-replay.md) |
+| Paced audio-file, local streaming ASR, and shared policy comparison | [File diagnostic](file-run.md) |
 | Optional local audio worker | [Local audio runtime](local-audio-runtime.md) |
 | Labels, baselines, and metrics | [Evaluation protocol](evaluation.md) |
 | Consent and continuous-conversation evidence | [Evidence guide](real-conversation-evidence.md) |

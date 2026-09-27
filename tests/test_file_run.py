@@ -1,0 +1,392 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import struct
+import wave
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from turnpilot import file_run
+from turnpilot.action_trace import replay_action_trace
+from turnpilot.file_adapters import AsrUpdate
+from turnpilot.file_run import MonotonicClock, inspect_wav, run_file
+from turnpilot.jev import JevJudge
+
+
+class FixtureClock:
+    def __init__(self) -> None:
+        self.at_ms = 0
+
+    def now_ms(self) -> int:
+        return self.at_ms
+
+    async def wait_until(self, at_ms: int) -> None:
+        self.at_ms = max(self.at_ms, at_ms)
+
+
+class FixtureVad:
+    def __init__(self, probabilities: list[float]) -> None:
+        self.values = iter(probabilities)
+        self.inputs: list[bytes] = []
+
+    def probability(self, pcm: bytes) -> float:
+        self.inputs.append(pcm)
+        return next(self.values)
+
+
+class FixtureAsr:
+    def __init__(
+        self,
+        updates: dict[int, AsrUpdate],
+        clock: FixtureClock | None = None,
+        delays: dict[int, int] | None = None,
+    ) -> None:
+        self.updates = updates
+        self.clock = clock
+        self.delays = delays or {}
+        self.inputs: list[bytes] = []
+
+    def feed(self, pcm: bytes) -> AsrUpdate | None:
+        self.inputs.append(pcm)
+        if self.clock:
+            self.clock.at_ms += self.delays.get(len(self.inputs), 0)
+        return self.updates.get(len(self.inputs))
+
+
+def audio_file(tmp_path: Path, frames: int, *, tail: int = 0) -> Path:
+    path = tmp_path / "private-source-name.wav"
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(1)
+        output.setsampwidth(2)
+        output.setframerate(16000)
+        output.writeframes(struct.pack("<h", 5000) * (frames * 512 + tail))
+    return path
+
+
+def run(path: Path, probabilities: list[float], updates: dict[int, AsrUpdate]) -> Any:
+    return asyncio.run(
+        run_file(path, FixtureVad(probabilities), FixtureAsr(updates), clock=FixtureClock())
+    )
+
+
+def test_shared_causal_frames_and_real_final(tmp_path: Path) -> None:
+    path = audio_file(tmp_path, 55)
+    vad = FixtureVad([0.9] * 10 + [0.0] * 45)
+    asr = FixtureAsr({5: AsrUpdate("secret partial"), 15: AsrUpdate("secret final", True)})
+    result = asyncio.run(run_file(path, vad, asr, clock=FixtureClock()))
+    assert vad.inputs == asr.inputs
+    assert len(vad.inputs) == 55
+    arms = result.report["arms"]
+    assert arms["direct_asr_final"]["recommendation"]["available_at_ms"] == 480
+    assert arms["fixed_640"]["recommendation"]["media_at_ms"] == 960
+    assert arms["adaptive_640"] == arms["fixed_640"]
+    assert arms["gate"]["recommendation"]["media_at_ms"] == 1536
+    assert result.report["evidence_level"] == "injected_clock_fixture"
+    serialized = json.dumps(result.report) + result.trace.to_jsonl()
+    assert "secret" not in serialized
+    assert path.name not in serialized
+    assert result.report["quality_rates"] is None
+    replay = replay_action_trace(result.trace.events)
+    assert replay is not None  # Valid content-free trace, not actual-text re-inference.
+
+
+def test_resume_cancels_before_gate_cap(tmp_path: Path) -> None:
+    result = run(
+        audio_file(tmp_path, 90),
+        [0.9] * 10 + [0.0] * 25 + [0.9] * 10 + [0.0] * 45,
+        {10: AsrUpdate("final", True)},
+    )
+    arms = result.report["arms"]
+    assert arms["direct_asr_final"]["vad_resumed_later"]
+    assert arms["fixed_640"]["vad_resumed_later"]
+    assert not arms["gate"]["vad_resumed_later"]
+    assert result.report["canceled_candidates"]["gate"] == 1
+    assert arms["gate"]["recommendation"]["media_at_ms"] == 2656
+
+
+def test_eof_is_censored_not_finalized_or_padded(tmp_path: Path) -> None:
+    vad = FixtureVad([0.9] * 10)
+    asr = FixtureAsr({5: AsrUpdate("private pending")})
+    result = asyncio.run(
+        run_file(audio_file(tmp_path, 10, tail=511), vad, asr, clock=FixtureClock())
+    )
+    assert len(asr.inputs) == len(vad.inputs) == 10
+    assert result.report["unprocessed_tail_samples"] == 511
+    assert result.report["eof_forced_final"] is False
+    assert result.report["synthetic_tail_silence_ms"] == 0
+    assert all(arm["no_recommendation_by_eof"] for arm in result.report["arms"].values())
+
+
+def test_silence_and_no_words_do_not_invent_transcripts(tmp_path: Path) -> None:
+    silent = run(audio_file(tmp_path, 55), [0.0] * 55, {})
+    assert silent.report["asr"]["revisions"] == 0
+    assert all(arm["no_recommendation_by_eof"] for arm in silent.report["arms"].values())
+    unclear = run(audio_file(tmp_path, 55), [0.9] * 10 + [0.0] * 45, {})
+    assert unclear.report["arms"]["fixed_640"]["recommendation"]["kind"] == "clarify_audio"
+    assert unclear.report["arms"]["direct_asr_final"]["no_recommendation_by_eof"]
+
+
+def test_backlog_never_authorizes_gated_actions(tmp_path: Path) -> None:
+    clock = FixtureClock()
+    asr = FixtureAsr({30: AsrUpdate("real final", True)}, clock, {30: 400})
+    result = asyncio.run(
+        run_file(audio_file(tmp_path, 55), FixtureVad([0.9] * 10 + [0.0] * 45), asr, clock=clock)
+    )
+    report = result.report
+    assert report["pipeline"]["backlog_frames"] > 1
+    assert report["pipeline"]["availability_lag_max_ms"] == 400
+    assert report["arms"]["direct_asr_final"]["recommendation"]["unprocessed_backlog"]
+    assert not report["arms"]["fixed_640"]["recommendation"]["unprocessed_backlog"]
+    assert report["arms"]["fixed_640"]["recommendation"]["media_at_ms"] > 960
+    assert report["arms"]["gate"]["recommendation"]["media_at_ms"] == 1536
+
+
+def test_rejected_stale_candidate_retries_when_observations_are_fresh(tmp_path: Path) -> None:
+    clock = FixtureClock()
+    asr = FixtureAsr({15: AsrUpdate("words", True)}, clock, {17: 400})
+    result = asyncio.run(
+        run_file(audio_file(tmp_path, 55), FixtureVad([0.9] * 10 + [0.0] * 45), asr, clock=clock)
+    )
+    candidates = [event for event in result.trace.events if event.kind == "candidate"]
+    assert len(candidates) == 1
+    assert result.report["arms"]["gate"]["recommendation"]["media_at_ms"] == 1536
+
+
+class Transport:
+    def __init__(self, *, fail: bool = False, hang: bool = False) -> None:
+        self.payloads: list[Any] = []
+        self.fail = fail
+        self.hang = hang
+
+    async def evaluate(self, payload: Any, *, timeout_s: float) -> Any:
+        self.payloads.append(payload)
+        if self.fail:
+            raise RuntimeError("DO NOT PRINT PRIVATE TEXT OR KEY")
+        if self.hang:
+            await asyncio.Event().wait()
+        return {
+            "model": "jev-1.13.0",
+            "answers": {
+                key: {
+                    "type": "noul",
+                    "noul": 0.9 if key in ("turn_complete", "response_needed") else 0.0,
+                }
+                for key in (
+                    "turn_complete",
+                    "response_needed",
+                    "needs_meaning_clarification",
+                    "backchannel",
+                )
+            },
+        }
+
+
+def remote_run(
+    tmp_path: Path, probabilities: list[float], updates: dict[int, AsrUpdate], transport: Transport
+) -> Any:
+    clock = FixtureClock()
+    judge = JevJudge(transport, clock_ms=clock.now_ms)
+    return asyncio.run(
+        run_file(
+            audio_file(tmp_path, len(probabilities)),
+            FixtureVad(probabilities),
+            FixtureAsr(updates),
+            clock=clock,
+            judge=judge,
+            allow_remote_text=True,
+        )
+    )
+
+
+def test_jev_needs_opt_in(tmp_path: Path) -> None:
+    transport = Transport()
+    with pytest.raises(ValueError, match="opt-in"):
+        asyncio.run(
+            run_file(
+                audio_file(tmp_path, 5),
+                FixtureVad([0.9] * 5),
+                FixtureAsr({}),
+                clock=FixtureClock(),
+                judge=JevJudge(transport),
+            )
+        )
+    assert not transport.payloads
+
+
+def test_jev_final_aligned_can_release_early(tmp_path: Path) -> None:
+    transport = Transport()
+    result = remote_run(
+        tmp_path, [0.9] * 10 + [0.0] * 45, {15: AsrUpdate("licensed words", True)}, transport
+    )
+    assert result.report["jev"]["attempts"] == result.report["jev"]["successes"] == 1
+    gate = result.report["arms"]["gate_jev"]["recommendation"]
+    assert gate["used_semantic"]
+    assert gate["media_at_ms"] < 1536
+    assert "licensed words" not in json.dumps(result.report)
+    assert transport.payloads[0]["state"]["current_user_transcript"] == "licensed words"
+
+
+def test_jev_partial_is_not_early_release(tmp_path: Path) -> None:
+    result = remote_run(
+        tmp_path, [0.9] * 10 + [0.0] * 45, {15: AsrUpdate("partial only")}, Transport()
+    )
+    assert result.report["arms"]["gate_jev"]["recommendation"]["media_at_ms"] == 1536
+
+
+def test_jev_stale_revision_errors_and_cancellation(tmp_path: Path) -> None:
+    result = remote_run(
+        tmp_path,
+        [0.9] * 10 + [0.0] * 45,
+        {15: AsrUpdate("first", True), 18: AsrUpdate("second")},
+        Transport(),
+    )
+    assert result.report["jev"]["attempts"] == 2
+    assert result.report["jev"]["discarded"] >= 1
+    result = remote_run(
+        tmp_path, [0.9] * 10 + [0.0] * 45, {15: AsrUpdate("first", True)}, Transport(fail=True)
+    )
+    assert result.report["jev"]["errors"] == 1
+    assert "PRIVATE" not in json.dumps(result.report)
+    result = remote_run(
+        tmp_path,
+        [0.9] * 10 + [0.0] * 10 + [0.9] * 10,
+        {15: AsrUpdate("first", True)},
+        Transport(hang=True),
+    )
+    assert result.report["jev"]["canceled"] == 1
+    assert result.report["canceled_candidates"]["gate_jev"] == 1
+
+
+@pytest.mark.parametrize(
+    "rate,channels,width,frames",
+    [
+        (8000, 1, 2, 512),
+        (16000, 2, 2, 512),
+        (16000, 1, 1, 512),
+        (16000, 1, 2, 0),
+        (16000, 1, 2, 960001),
+    ],
+)
+def test_wav_validation(tmp_path: Path, rate: int, channels: int, width: int, frames: int) -> None:
+    path = tmp_path / "invalid.wav"
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(channels)
+        output.setsampwidth(width)
+        output.setframerate(rate)
+        output.writeframes(b"\0" * frames * channels * width)
+    with pytest.raises(ValueError):
+        inspect_wav(path)
+
+
+def test_clock_and_probability_validation(tmp_path: Path) -> None:
+    path = audio_file(tmp_path, 5)
+    clock = FixtureClock()
+    clock.at_ms = 33
+    with pytest.raises(ValueError, match="initialization"):
+        asyncio.run(run_file(path, FixtureVad([0.9] * 5), FixtureAsr({}), clock=clock))
+    with pytest.raises(ValueError, match="probability"):
+        run(path, [float("nan")] * 5, {})
+
+
+def test_cli_sanitized_failure_and_no_overwrite(tmp_path: Path, capsys: Any) -> None:
+    report = tmp_path / "existing.json"
+    report.write_text("preserve", encoding="utf8")
+    args = ["private.wav", "--vad-model", "private.onnx", "--asr-model", "private-model"]
+    assert file_run.main(args + ["--report", str(report)]) == 2
+    assert report.read_text() == "preserve"
+    assert "private" not in capsys.readouterr().err
+    assert file_run.main(args) == 2
+    assert "private" not in capsys.readouterr().err
+    link = tmp_path / "link.json"
+    link.symlink_to(report)
+    with pytest.raises(FileExistsError):
+        file_run._write_new(link, "bad")
+    assert report.read_text() == "preserve"
+
+
+@pytest.mark.parametrize("remote", [False, True])
+def test_cli_local_success(tmp_path: Path, monkeypatch: Any, capsys: Any, remote: bool) -> None:
+    path = audio_file(tmp_path, 2)
+    vad_model = tmp_path / "vad.onnx"
+    vad_model.write_bytes(b"model")
+    asr_model = tmp_path / "asr"
+    asr_model.mkdir()
+    (asr_model / "weights").write_bytes(b"asr")
+    monkeypatch.setattr(file_run, "SileroOnnxVad", lambda _: FixtureVad([0.9] * 2))
+    monkeypatch.setattr(file_run, "VoskStreamingAsr", lambda _: FixtureAsr({}))
+    monkeypatch.setattr(file_run.importlib.metadata, "version", lambda _: "fixture-version")
+    transports: list[Any] = []
+
+    class CliTransport(Transport):
+        closed = False
+
+        async def close(self) -> None:
+            self.closed = True
+
+    def transport_factory(key: str) -> CliTransport:
+        assert remote  # A key in the environment is not implicit consent.
+        assert key == "fixture-only-key"
+        transport = CliTransport()
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setenv("TYPESAFE_API_KEY", "fixture-only-key")
+    monkeypatch.setattr(file_run, "HttpxJevTransport", transport_factory)
+    report = tmp_path / "new.json"
+    trace = tmp_path / "new.jsonl"
+    args = [
+        str(path),
+        "--vad-model",
+        str(vad_model),
+        "--asr-model",
+        str(asr_model),
+        "--report",
+        str(report),
+        "--trace",
+        str(trace),
+    ]
+    if remote:
+        args.append("--allow-remote-text")
+    assert file_run.main(args) == 0
+    value = json.loads(report.read_text())
+    assert value["evidence_level"] == "paced_file_pipeline_only"
+    assert value["model_fingerprints"]["vad"]
+    assert report.stat().st_mode & 0o777 == 0o600
+    assert "timeline" not in json.loads(capsys.readouterr().out)
+    assert trace.read_text()
+    assert value["jev"]["enabled"] == remote
+    assert len(transports) == int(remote)
+    if remote:
+        assert transports[0].closed
+    assert "fixture-only-key" not in report.read_text()
+
+
+def test_monotonic_clock() -> None:
+    clock = MonotonicClock()
+    asyncio.run(clock.wait_until(2))
+    assert clock.now_ms() >= 2
+
+
+def test_invalid_cli_arguments_are_not_echoed(capsys: Any) -> None:
+    assert file_run.main(["--unexpected", "do-not-echo-me"]) == 2
+    assert "do-not-echo-me" not in capsys.readouterr().err
+
+
+def test_jev_call_budget_and_eof_cancel(tmp_path: Path) -> None:
+    transport = Transport()
+    result = remote_run(
+        tmp_path,
+        [0.9] * 10 + [0.0] * 45,
+        {15: AsrUpdate("one"), 22: AsrUpdate("two"), 30: AsrUpdate("three", True)},
+        transport,
+    )
+    assert result.report["jev"]["attempts"] == len(transport.payloads) == 2
+    assert result.report["arms"]["gate_jev"]["recommendation"]["media_at_ms"] == 1536
+    result = remote_run(
+        tmp_path, [0.9] * 10 + [0.0] * 10, {15: AsrUpdate("one")}, Transport(hang=True)
+    )
+    assert result.report["jev"]["canceled"] == 1
+    assert result.report["arms"]["gate_jev"]["no_recommendation_by_eof"]

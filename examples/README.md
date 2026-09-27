@@ -14,6 +14,7 @@ The other scripts are optional research probes:
 
 | Scripts | Additional input and boundary |
 | --- | --- |
+| `turnpilot-file-run` (installed CLI) | Shared, paced local VAD/streaming-ASR input; compare policies without EOF finalization. [Guide](../docs/file-run.md). One window, not a host or a quality benchmark. |
 | `live_jev_probe.py`, `easyturn_jev_probe.py` | Explicit opt-in to send authored or licensed text to TypeSafe; never use private transcripts without consent. |
 | `smoothconv_annotation_probe.py`, `smoothconv_audio_probe.py`, `smoothconv_event_probe.py` | Separately obtained, licensed SmoothConv annotations/audio and local model dependencies; no corpus is bundled. |
 | `eot_bench_adapter.py`, `eot_bench_tune.py` | External benchmark harness and its data; exploratory timing comparisons only. |
@@ -24,6 +25,7 @@ The optional inputs have **separate upstream terms** (checked 2026-09-23):
 | External input | Upstream terms and boundary |
 | --- | --- |
 | [Silero VAD](https://github.com/snakers4/silero-vad) ONNX | Upstream [MIT license](https://github.com/snakers4/silero-vad/blob/master/LICENSE); obtain the model separately. |
+| [Vosk Chinese small 0.22](https://alphacephei.com/vosk/models) | Upstream model table lists Apache-2.0. Local incremental ASR is a diagnostic input, not a claim of recognition accuracy. Obtain the model separately. |
 | [Smart Turn v3.2 CPU](https://huggingface.co/pipecat-ai/smart-turn-v3) ONNX | Model card lists BSD-2-Clause; the probe checks the selected file's SHA-256. Obtain weights separately. |
 | [SmoothConv](https://huggingface.co/datasets/qualialabsAI/SmoothConv) | CC BY-NC 4.0 and an upstream research-use statement. Do not assume commercial-use or redistribution rights from TurnPilot's Apache-2.0 license. |
 | [Easy Turn Testset](https://huggingface.co/datasets/ASLP-lab/Easy-Turn-Testset) | Dataset card lists Apache-2.0; audio and publisher text are not bundled here. |

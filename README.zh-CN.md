@@ -59,6 +59,20 @@ print(decision.kind.value)  # commit_user_turn
 
 示例只用合成观察，不调用网络。真正执行建议前，宿主还必须复核会话、轮次/代际、有效期及动作对应的播放状态。
 
+## 用真实音频做同钟对照
+
+`turnpilot-file-run` 按实时节奏逐个送入 32 ms 音频块，运行**本地 Silero VAD 与增量 Vosk ASR**，让直接 final-ASR、固定 640 ms、动态 640 ms 和候选动作闸门使用同一批观察进行对照。Jev 是可选、限次、可取消的文字侧分支。
+
+```bash
+python -m pip install -e '.[file]'
+turnpilot-file-run corpus/window.wav \
+  --vad-model corpus/models/silero.onnx \
+  --asr-model corpus/models/vosk-model-small-cn-0.22 \
+  --report reports/window.json --trace reports/window.jsonl
+```
+
+自行取得有使用权的音频及模型，先创建 `reports/`。输入须为 16 kHz、单声道、PCM16，长度 32 ms–60 s；输出文件不覆盖已有内容。不录麦克风、不自动下载、不默认调用云端，也不在文件结束时伪造 final 或补静音。报告只有时间与状态，**不含逐字稿或音频**。一次文件是一段分析窗口，不是多轮 Agent；没有人工标签就不报告效果正确率。[配置、Jev 开关与读数说明](docs/file-run.md)。
+
 ## 使用 Jev：给 ASR 增加文字侧判断
 
 安装可选依赖：`python -m pip install -e '.[jev]'`。在本地设置 `TYPESAFE_API_KEY` 环境变量后，下面的示例会**明确授权上传这句示例文字**，请求 Jev 的完整度、澄清、附和和回应需求分数：

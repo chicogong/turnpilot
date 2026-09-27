@@ -48,5 +48,12 @@ jobs:
         run: uv run --no-sync turnpilot-action-replay examples/synthetic-action-trace.jsonl --compare-direct-asr
       - name: Offline background runtime smoke test
         run: uv run --no-sync python examples/local_audio_runtime_demo.py
+      - name: File diagnostic help without model dependencies
+        run: uv run --no-sync turnpilot-file-run --help
       - name: Build source and wheel distributions
         run: uv build
+      - name: Installed wheel CLI smoke test without optional dependencies
+        run: >-
+          uv run --isolated --no-project
+          --with ./dist/turnpilot-0.1.0.dev1-py3-none-any.whl
+          turnpilot-file-run --help

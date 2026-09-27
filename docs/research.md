@@ -1,6 +1,6 @@
 # Research status
 
-TurnPilot has **not** demonstrated a product-quality improvement. The code is testable, but current public-corpus probes lack the real streaming ASR, assistant playback, speaker/device isolation, and human action labels needed to measure whether an agent should respond.
+TurnPilot has **not** demonstrated a product-quality improvement. Earlier public-corpus probes used static transcripts. The new paced-file diagnostic measures local incremental-ASR availability, but still lacks continuous-device playback, speaker/device isolation, and human action labels needed to measure whether an agent should respond.
 
 | Check | What was observed | What it does not establish |
 | --- | --- | --- |
@@ -8,6 +8,7 @@ TurnPilot has **not** demonstrated a product-quality improvement. The code is te
 | Independent Mandarin short clips | A local audio end-of-turn score was high on **124/150** complete clips but also **37/150** incomplete clips | Audio completion confidence is not permission for the assistant to reply |
 | Live Jev on 20 real complete + 20 real incomplete [Easy Turn](https://huggingface.co/datasets/ASLP-lab/Easy-Turn-Testset) dataset transcripts | At the existing 0.8 completion threshold, Jev accepted **3/20** complete and **0/20** incomplete; 40/40 calls succeeded | A strong missed-completion tradeoff. These are static dataset transcripts, not streaming ASR; the optional gate and pause fallback were not exercised |
 | Provisional action gate versus a minimal direct-ASR-final trigger on one synthetic two-turn trace | Direct ASR recommended 2 commits (1 during resumed speech); the gate recommended 1 commit, canceled 1 candidate, and was 10 ms later on the first turn | Causal mechanics only; no measured reduction in real wrong responses or perceived latency |
+| Paced local VAD + incremental ASR on 10 real complete + 10 real incomplete Easy Turn clips, without EOF finalization | 158 ASR revisions; **0/20** clips produced a nonempty decoder final before EOF. Fixed/dynamic 640 ms each recommended 2 complete-clip commits; the optional gate recommended 1. None recommended on the 10 incomplete clips | Mostly EOF-censored observation, not completion recall, action accuracy, or a dynamic-VAD gain. Jev was disabled. [Protocol and timing](file-run.md#public-file-pilot-2026-09-27) |
 
 The unchanged policy remains the default. Local audio scoring, the provisional action gate, and Jev are optional research paths. Their thresholds are not calibrated for deployment. In particular, the current Jev threshold cannot be called an improvement over direct ASR: the text-only sample reduced incomplete-text triggers but missed most complete texts, and a full gate could still act at its pause cap. SmoothConv is [CC BY-NC 4.0](https://huggingface.co/datasets/qualialabsAI/SmoothConv); these local research aggregates do not confer commercial-use rights. Public datasets and third-party weights are not redistributed in this repository; check the [upstream terms](../examples/README.md) before obtaining or using them.
 
