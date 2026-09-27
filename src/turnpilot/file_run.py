@@ -31,7 +31,7 @@ from turnpilot.file_adapters import (
     VoskStreamingAsr,
     model_fingerprint,
 )
-from turnpilot.jev import HttpxJevTransport, JevJudge
+from turnpilot.jev import HttpxJevTransport, JevError, JevJudge
 from turnpilot.models import (
     AcousticSignal,
     Decision,
@@ -41,6 +41,7 @@ from turnpilot.models import (
     TranscriptSignal,
     TurnRef,
 )
+from turnpilot.partial_stability import PartialTranscriptStability
 from turnpilot.policy import PolicyConfig, TurnPolicy
 
 SAMPLE_RATE = 16000
@@ -85,22 +86,62 @@ class _SafeParser(argparse.ArgumentParser):
         raise ValueError("invalid file diagnostic arguments")
 
 
-def inspect_wav(path: Path) -> int:
-    """Reject unsupported/oversized audio before loading any models."""
+@dataclass(frozen=True, slots=True)
+class _WavWindow:
+    source_samples: int
+    start_sample: int
+    samples: int
+
+
+def _inspect_window(path: Path, start_ms: int, duration_ms: int | None) -> _WavWindow:
+    if (
+        isinstance(start_ms, bool)
+        or not isinstance(start_ms, int)
+        or start_ms < 0
+        or (
+            duration_ms is not None
+            and (
+                isinstance(duration_ms, bool)
+                or not isinstance(duration_ms, int)
+                or not FRAME_MS <= duration_ms <= MAX_DURATION_MS
+            )
+        )
+    ):
+        raise ValueError("invalid file window bounds")
     with wave.open(str(path), "rb") as source:
         if (
             source.getnchannels() != 1
             or source.getsampwidth() != 2
             or source.getframerate() != SAMPLE_RATE
             or source.getcomptype() != "NONE"
-            or not FRAME_SAMPLES <= source.getnframes() <= MAX_DURATION_MS * 16
         ):
-            raise ValueError("expected 32 ms to 60 s of 16 kHz mono PCM16 WAV")
-        return source.getnframes()
+            raise ValueError("expected 16 kHz mono PCM16 WAV")
+        total = source.getnframes()
+        start = start_ms * 16
+        samples = total - start if duration_ms is None else duration_ms * 16
+        if not FRAME_SAMPLES <= samples <= MAX_DURATION_MS * 16 or start + samples > total:
+            raise ValueError("expected an explicit in-source window of 32 ms to 60 s")
+        return _WavWindow(total, start, samples)
+
+
+def inspect_wav(path: Path, *, start_ms: int = 0, duration_ms: int | None = None) -> int:
+    """Reject invalid windows before model loading; never implicitly crop."""
+    return _inspect_window(path, start_ms, duration_ms).samples
 
 
 def _p95(values: list[int]) -> int:
     return sorted(values)[math.ceil(len(values) * 0.95) - 1] if values else 0
+
+
+def _compute_summary(durations_ns: list[int]) -> dict[str, object]:
+    return {
+        "frames": len(durations_ns),
+        "total_ms": round(sum(durations_ns) / 1_000_000, 3),
+        "mean_ms": round(sum(durations_ns) / len(durations_ns) / 1_000_000, 3),
+        "p95_ms": round(_p95(durations_ns) / 1_000_000, 3),
+        "max_ms": round(max(durations_ns) / 1_000_000, 3),
+        "over_frame_budget": sum(value >= FRAME_MS * 1_000_000 for value in durations_ns),
+    }
 
 
 @dataclass(slots=True)
@@ -146,6 +187,7 @@ class _SemanticProbe:
         self.clock = clock
         self.task: asyncio.Task[SemanticSignal] | None = None
         self.signal: SemanticSignal | None = None
+        self.signal_requested_at_ms: int | None = None
         self.attempts = 0
         self.successes = 0
         self.errors = 0
@@ -153,13 +195,21 @@ class _SemanticProbe:
         self.discarded = 0
         self._last_revision = -1
         self._last_call_at = -100
+        self._task_requested_at_ms: int | None = None
+        self._success_latency_ms: list[int] = []
 
     async def observe(
-        self, acoustic: AcousticSignal, transcript: TranscriptSignal | None, *, backlog: bool
+        self,
+        acoustic: AcousticSignal,
+        transcript: TranscriptSignal | None,
+        *,
+        backlog: bool,
+        partial_ready: bool | None = None,
     ) -> None:
         now_ms = self.clock.now_ms()
         if acoustic.speech_active:
             self.signal = None
+            self.signal_requested_at_ms = None
             await self.cancel()
         if self.task is not None and self.task.done():
             task, self.task = self.task, None
@@ -169,6 +219,10 @@ class _SemanticProbe:
                 self.errors += 1  # Do not expose provider exceptions or request text.
             else:
                 self.successes += 1
+                if self._task_requested_at_ms is not None:
+                    self._success_latency_ms.append(
+                        signal.received_at_ms - self._task_requested_at_ms
+                    )
                 if (
                     transcript is not None
                     and signal.ref == transcript.ref
@@ -178,14 +232,17 @@ class _SemanticProbe:
                     and not acoustic.speech_active
                 ):
                     self.signal = signal
+                    self.signal_requested_at_ms = self._task_requested_at_ms
                 else:
                     self.discarded += 1
+            self._task_requested_at_ms = None
         if self.signal is not None and (
             transcript is None
             or self.signal.transcript_revision != transcript.revision
             or now_ms - self.signal.received_at_ms > 500
         ):
             self.signal = None
+            self.signal_requested_at_ms = None
         if (
             self.judge is not None
             and self.task is None
@@ -194,6 +251,7 @@ class _SemanticProbe:
             and acoustic.pause_duration_ms is not None
             and acoustic.pause_duration_ms >= 224
             and transcript is not None
+            and (partial_ready is None or partial_ready or transcript.is_final)
             and transcript.text.strip()
             and len(transcript.text) <= self.judge.max_transcript_chars
             and transcript.revision > self._last_revision
@@ -203,6 +261,7 @@ class _SemanticProbe:
             self.attempts += 1
             self._last_revision = transcript.revision
             self._last_call_at = now_ms
+            self._task_requested_at_ms = now_ms
             self.task = asyncio.create_task(
                 self.judge.judge(transcript, now_ms=now_ms, allow_remote_text=True)
             )
@@ -212,6 +271,7 @@ class _SemanticProbe:
             self.task.cancel()
             await asyncio.gather(self.task, return_exceptions=True)
             self.task = None
+            self._task_requested_at_ms = None
             self.canceled += 1
 
     def summary(self) -> dict[str, object]:
@@ -225,6 +285,12 @@ class _SemanticProbe:
             "model": self.judge.model if self.judge else None,
             "timeout_ms": self.judge.timeout_ms if self.judge else None,
             "max_calls_per_window": self.judge.max_calls_per_turn if self.judge else 0,
+            "successful_request_latency_ms": {
+                "samples": len(self._success_latency_ms),
+                "p95": _p95(self._success_latency_ms) if self._success_latency_ms else None,
+                "max": max(self._success_latency_ms) if self._success_latency_ms else None,
+                "basis": "request_scheduled_to_result_arrival_not_server_inference",
+            },
         }
 
 
@@ -242,6 +308,9 @@ async def run_file(
     clock: Clock | None = None,
     judge: JevJudge | None = None,
     allow_remote_text: bool = False,
+    experimental_stable_partial: bool = False,
+    start_ms: int = 0,
+    duration_ms: int | None = None,
 ) -> FileRunResult:
     """Run fresh adapters on one window. Injected clocks are fixture evidence.
 
@@ -250,7 +319,8 @@ async def run_file(
     """
     if judge is not None and not allow_remote_text:
         raise ValueError("file transcript upload requires explicit opt-in")
-    samples = inspect_wav(path)
+    window = _inspect_window(path, start_ms, duration_ms)
+    samples = window.samples
     injected_clock = clock is not None and not isinstance(clock, MonotonicClock)
     active_clock = clock or MonotonicClock()
     if active_clock.now_ms() > FRAME_MS:
@@ -265,16 +335,24 @@ async def run_file(
     gates = {name: AdaptiveSpeechGate(config) for name, config in configs.items()}
     action_gate = ProvisionalActionGate()
     jev_gate = ProvisionalActionGate()
+    stable_gate = ProvisionalActionGate(stable_partial_ms=224)
+    stability = PartialTranscriptStability() if experimental_stable_partial else None
     policy = TurnPolicy()
     arms = {name: _Arm() for name in ("direct_asr_final", "fixed_640", "adaptive_640", "gate")}
     if judge is not None:
         arms["gate_jev"] = _Arm()
+        if experimental_stable_partial:
+            arms["gate_stable_partial_jev"] = _Arm()
     probe = _SemanticProbe(judge, active_clock)
     transcript: TranscriptSignal | None = None
     asr_revisions = asr_finals = 0
     timeline: list[dict[str, object]] = []
     lag: list[int] = []
     processing: list[int] = []
+    vad_compute: list[int] = []
+    asr_compute: list[int] = []
+    stable_frames = 0
+    first_stable_media_ms: int | None = None
     thresholds: list[float] = []
     backlog_frames = 0
     previous_states: dict[str, bool] = {}
@@ -284,6 +362,7 @@ async def run_file(
 
     try:
         with wave.open(str(path), "rb") as source:
+            source.setpos(window.start_sample)
             for frame_index in range(samples // FRAME_SAMPLES):
                 pcm = source.readframes(FRAME_SAMPLES)
                 if len(pcm) != FRAME_SAMPLES * 2:
@@ -293,7 +372,9 @@ async def run_file(
                 # Give optional async inference a chance even with an injected clock.
                 await asyncio.sleep(0)
                 started_ms = active_clock.now_ms()
+                compute_start_ns = time.perf_counter_ns()
                 probability = vad.probability(pcm)
+                vad_compute.append(time.perf_counter_ns() - compute_start_ns)
                 acoustic_at_ms = active_clock.now_ms()
                 rms = math.sqrt(sum(v * v for (v,) in struct.iter_unpack("<h", pcm)) / 512)
                 energy = 20 * math.log10(max(rms / 32768, 1e-6))
@@ -319,7 +400,9 @@ async def run_file(
                             }
                         )
                     previous_states[name] = signal.speech_active
+                compute_start_ns = time.perf_counter_ns()
                 update = asr.feed(pcm)
+                asr_compute.append(time.perf_counter_ns() - compute_start_ns)
                 now_ms = active_clock.now_ms()
                 if now_ms < acoustic_at_ms or acoustic_at_ms < started_ms or started_ms < media_ms:
                     raise ValueError("file clock moved backward or input arrived early")
@@ -352,7 +435,20 @@ async def run_file(
                             backlog,
                         )
 
-                await probe.observe(acoustic, transcript, backlog=backlog)
+                partial_ready = None
+                if stability is not None:
+                    partial_ready = stability.observe(
+                        HostState(ref, now_ms, session_active=True),
+                        acoustic,
+                        transcript,
+                        input_backlogged=backlog,
+                    )
+                    stable_frames += partial_ready
+                    if partial_ready and first_stable_media_ms is None:
+                        first_stable_media_ms = media_ms
+                await probe.observe(
+                    acoustic, transcript, backlog=backlog, partial_ready=partial_ready
+                )
                 now_ms = active_clock.now_ms()
                 backlog = now_ms - media_ms >= FRAME_MS
                 backlog_frames += backlog
@@ -369,6 +465,7 @@ async def run_file(
                             "media_at_ms": media_ms,
                             "available_at_ms": probe.signal.received_at_ms,
                             "polled_at_ms": now_ms,
+                            "requested_at_ms": probe.signal_requested_at_ms,
                             **data,
                         }
                     )
@@ -386,6 +483,8 @@ async def run_file(
                         recorder.append(TraceEvent("candidate", now_ms, ref))
                 if acoustic.pause_duration_ms is not None and acoustic.pause_duration_ms >= 224:
                     jev_gate.arm(host, acoustic)
+                    if experimental_stable_partial:
+                        stable_gate.arm(host, acoustic)
                 # Resume always cancels candidates, including while catching up.
                 if not backlog or acoustic.speech_active:
                     arms["gate"].record(
@@ -397,6 +496,21 @@ async def run_file(
                             media_ms,
                             backlog,
                         )
+                if judge is not None and experimental_stable_partial:
+                    # Always observe backlog/resume to reset the partial interval;
+                    # the experiment itself suppresses recommendations while behind.
+                    arms["gate_stable_partial_jev"].record(
+                        stable_gate.decide(
+                            host,
+                            acoustic,
+                            transcript,
+                            probe.signal,
+                            input_backlogged=backlog,
+                            semantic_requested_at_ms=probe.signal_requested_at_ms,
+                        ),
+                        media_ms,
+                        backlog,
+                    )
                 if not backlog:
                     for name in ("fixed", "adaptive"):
                         arms[name + "_640"].record(
@@ -414,6 +528,11 @@ async def run_file(
         if injected_clock
         else "paced_file_pipeline_only",
         "duration_ms": samples / 16,
+        "window": {
+            "start_ms": window.start_sample / 16,
+            "source_duration_ms": window.source_samples / 16,
+            "ends_at_source_eof": window.start_sample + samples == window.source_samples,
+        },
         "processed_media_ms": media_ms,
         "unprocessed_tail_samples": samples % FRAME_SAMPLES,
         "frame_ms": FRAME_MS,
@@ -425,17 +544,37 @@ async def run_file(
             "availability_lag_p95_ms": _p95(lag),
             "availability_lag_max_ms": max(lag),
             "backlog_frames": backlog_frames,
+            "component_compute": {
+                "clock": "perf_counter_ns",
+                "includes_first_decode": True,
+                "excludes_model_initialization": True,
+                "vad": _compute_summary(vad_compute),
+                "asr": _compute_summary(asr_compute),
+            },
         },
         "config": {
             "policy": asdict(PolicyConfig()),
             "acoustic": {name: asdict(config) for name, config in configs.items()},
             "candidate_pause_ms": 224,
             "adaptive_start_threshold_range": [min(thresholds), max(thresholds)],
+            "experimental_stable_partial_ms": 224 if experimental_stable_partial else None,
+            "jev_partial_request_schedule": "stable_paused_partial"
+            if experimental_stable_partial
+            else "nonempty_paused_partial",
         },
         "arms": {name: arm.summary() for name, arm in arms.items()},
         "canceled_candidates": {
             "gate": action_gate.canceled_candidates,
             "gate_jev": jev_gate.canceled_candidates if judge else None,
+            "gate_stable_partial_jev": stable_gate.canceled_candidates
+            if judge and experimental_stable_partial
+            else None,
+        },
+        "partial_stability": {
+            "enabled": experimental_stable_partial,
+            "eligible_frames": stable_frames,
+            "first_eligible_media_ms": first_stable_media_ms,
+            "semantic_release_tested": judge is not None and experimental_stable_partial,
         },
         "jev": probe.summary(),
         "timeline": timeline,
@@ -479,7 +618,9 @@ def _write_new(path: Path, content: str) -> None:
 
 
 async def _run_cli(args: argparse.Namespace) -> FileRunResult:
-    inspect_wav(args.wav)
+    if args.preconnect_jev and not args.allow_remote_text:
+        raise ValueError("Jev preconnect requires explicit remote opt-in")
+    inspect_wav(args.wav, start_ms=args.start_ms, duration_ms=args.duration_ms)
     if not args.vad_model.is_file() or not args.asr_model.is_dir():
         raise ValueError("local VAD file and ASR directory are required")
     fingerprints = {
@@ -490,11 +631,30 @@ async def _run_cli(args: argparse.Namespace) -> FileRunResult:
     asr = VoskStreamingAsr(args.asr_model)
     transport: HttpxJevTransport | None = None
     clock = MonotonicClock()
+    preconnect: dict[str, object] = {
+        "attempted": False,
+        "success": None,
+        "elapsed_ms": None,
+        "outside_window": True,
+        "uploaded_text": False,
+    }
     try:
         judge = None
         if args.allow_remote_text:
             transport = HttpxJevTransport(os.environ.get("TYPESAFE_API_KEY", ""))
             judge = JevJudge(transport, clock_ms=clock.now_ms)
+            if args.preconnect_jev:
+                started_ns = time.perf_counter_ns()
+                preconnect["attempted"] = True
+                try:
+                    await transport.preconnect()
+                except JevError:
+                    preconnect["success"] = False
+                else:
+                    preconnect["success"] = True
+                preconnect["elapsed_ms"] = round(
+                    (time.perf_counter_ns() - started_ns) / 1_000_000, 3
+                )
             # HTTP client setup belongs to initialization, not the paced window.
             clock = MonotonicClock()
             judge.clock_ms = clock.now_ms
@@ -505,8 +665,12 @@ async def _run_cli(args: argparse.Namespace) -> FileRunResult:
             clock=clock,
             judge=judge,
             allow_remote_text=args.allow_remote_text,
+            experimental_stable_partial=args.experimental_stable_partial,
+            start_ms=args.start_ms,
+            duration_ms=args.duration_ms,
         )
         result.report["model_fingerprints"] = fingerprints
+        result.report["jev_preconnect"] = preconnect
         result.report["runtime"] = {
             "python": platform.python_version(),
             "system": platform.system(),
@@ -529,6 +693,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--asr-model", type=Path, required=True, help="local Vosk model directory")
     parser.add_argument("--report", type=Path, help="new content-free JSON file; never overwrite")
     parser.add_argument("--trace", type=Path, help="new adaptive-arm JSONL; no words or audio")
+    parser.add_argument("--start-ms", type=int, default=0, help="explicit source-window start")
+    parser.add_argument("--duration-ms", type=int, help="explicit window length, at most 60000 ms")
+    parser.add_argument(
+        "--experimental-stable-partial",
+        action="store_true",
+        help="observe 224-ms stable partials; add a Jev arm only with explicit text-upload consent",
+    )
+    parser.add_argument(
+        "--preconnect-jev",
+        action="store_true",
+        help="explicit 5-s GET /models before timing; requires --allow-remote-text; no ASR upload",
+    )
     parser.add_argument(
         "--allow-remote-text",
         action="store_true",

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turnpilot"
-version = "0.1.0.dev1"
+version = "0.1.0.dev2"
 description = "Provider-neutral turn-taking decision and evaluation core for voice agents"
 readme = "README.md"
 license = "Apache-2.0"

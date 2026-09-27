@@ -11,6 +11,7 @@ import math
 import time
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol, cast
+from urllib.parse import urljoin
 
 from turnpilot.models import SemanticSignal, TranscriptSignal, TurnRef
 
@@ -196,6 +197,10 @@ class JevJudge:
         received_at_ms = self.clock_ms()
         if received_at_ms < now_ms:
             raise JevError("Jev response clock is incompatible with host clock")
+        # wait_for cannot run its timer while synchronous host work starves the
+        # event loop. Never authorize a score observed past the wall-clock budget.
+        if received_at_ms - now_ms > self.timeout_ms:
+            raise JevError("Jev result exceeded deadline")
         return SemanticSignal(
             ref=transcript.ref,
             received_at_ms=received_at_ms,
@@ -227,7 +232,35 @@ class HttpxJevTransport:
         self._api_key = api_key
         self._endpoint = endpoint
         self._owns_client = client is None
-        self._client = client if client is not None else httpx.AsyncClient()
+        self._client = (
+            client
+            if client is not None
+            else httpx.AsyncClient(limits=httpx.Limits(keepalive_expiry=60.0))
+        )
+
+    async def preconnect(self, *, timeout_ms: int = 5000) -> None:
+        """Explicit bounded GET /models before a window; no transcript/inference.
+
+        Never called by ``judge`` or ``evaluate``. It can authenticate and warm
+        this client's connection, but cannot guarantee a later request is fast.
+        """
+        if isinstance(timeout_ms, bool) or not isinstance(timeout_ms, int) or timeout_ms <= 0:
+            raise ValueError("invalid Jev preconnect deadline")
+        try:
+            response = await asyncio.wait_for(
+                self._client.get(
+                    urljoin(self._endpoint, "models"),
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    timeout=timeout_ms / 1000,
+                ),
+                timeout=timeout_ms / 1000,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise JevError("Jev preconnect unavailable") from None
+        if response.status_code != 200:
+            raise JevError(f"Jev HTTP {response.status_code}")
 
     async def evaluate(
         self, payload: Mapping[str, object], *, timeout_s: float

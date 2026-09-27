@@ -73,6 +73,10 @@ turnpilot-file-run corpus/window.wav \
 
 Obtain licensed models/audio separately and create `reports/` first. Inputs must be 16 kHz mono PCM16, 32 ms–60 s; output files must not already exist. No microphone capture, automatic downloads, cloud calls, EOF-forced final, or added tail silence. Reports contain timings and flags, **not words or audio**. This is one analysis window, not a multi-turn agent; no human labels means no quality-rate claim. [Setup, optional Jev, and interpretation](docs/file-run.md).
 
+For longer recordings, explicitly select `--start-ms 0 --duration-ms 60000`. Reports now split VAD/ASR compute from availability lag. `--experimental-stable-partial` observes 224 ms of unchanged partial ASR on fresh paused audio; only explicit Jev opt-in adds an early-release comparison arm. Optional `--preconnect-jev` records connection setup outside the window without relaxing the 350 ms judgment deadline. All three are diagnostics, not proven conversational gains.
+
+The latest 20-clip profile attributed 96.5% of combined VAD/ASR call time to ASR. A live Jev pass on those clips plus three 60 s public windows changed two cap-time recommendations to meaning clarification, but the stable-partial arm showed **no early-release gain** over the strict gate. [Measured results and limitations](docs/file-run.md#profiling-and-stable-partial-follow-up-2026-09-28).
+
 ## Use Jev for text-side judgment
 
 Install the optional dependency with `python -m pip install -e '.[jev]'` and provide `TYPESAFE_API_KEY` through your local environment. This example **explicitly opts in to sending its authored text** to Jev and reads completion and clarification scores:

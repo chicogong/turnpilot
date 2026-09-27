@@ -73,6 +73,10 @@ turnpilot-file-run corpus/window.wav \
 
 自行取得有使用权的音频及模型，先创建 `reports/`。输入须为 16 kHz、单声道、PCM16，长度 32 ms–60 s；输出文件不覆盖已有内容。不录麦克风、不自动下载、不默认调用云端，也不在文件结束时伪造 final 或补静音。报告只有时间与状态，**不含逐字稿或音频**。一次文件是一段分析窗口，不是多轮 Agent；没有人工标签就不报告效果正确率。[配置、Jev 开关与读数说明](docs/file-run.md)。
 
+较长录音可显式选取 `--start-ms 0 --duration-ms 60000`。报告现已把 VAD/ASR 计算开销与输入积压分开。`--experimental-stable-partial` 检查新鲜暂停音频中保持 224 ms 不变的真实 partial；只有明确授权 Jev 上传后才增加提前放行对照。可选 `--preconnect-jev` 把建连耗时单独记录在分析窗口之外，不放宽 350 ms 判断截止。这些是诊断与实验能力，不是已证实的对话效果提升。
+
+最新 20 条短音频剖析中，ASR 占 VAD/ASR 调用耗时的 96.5%。对这些短音频和另外三段 60 秒公开语料窗口的真实 Jev 复测，把两次兜底建议改为“澄清含义”，但稳定 partial 分支相比严格闸门**没有获得提前放行收益**。[实测结果与局限](docs/file-run.md#profiling-and-stable-partial-follow-up-2026-09-28)。
+
 ## 使用 Jev：给 ASR 增加文字侧判断
 
 安装可选依赖：`python -m pip install -e '.[jev]'`。在本地设置 `TYPESAFE_API_KEY` 环境变量后，下面的示例会**明确授权上传这句示例文字**，请求 Jev 的完整度、澄清、附和和回应需求分数：

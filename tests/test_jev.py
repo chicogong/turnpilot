@@ -128,7 +128,7 @@ def test_http_transport_uses_bearer_and_hides_error_body() -> None:
 
 def test_call_budget_rejects_duplicate_revision_and_excess_requests() -> None:
     transport = FakeTransport()
-    judge = JevJudge(transport, clock_ms=lambda: 1500, max_calls_per_turn=2)
+    judge = JevJudge(transport, clock_ms=lambda: 1200, max_calls_per_turn=2)
     first = transcript()
     asyncio.run(judge.judge(first, now_ms=1000, allow_remote_text=True))
     with pytest.raises(JevError, match="already evaluated"):
@@ -142,7 +142,7 @@ def test_call_budget_rejects_duplicate_revision_and_excess_requests() -> None:
 
 def test_call_interval_and_new_generation_budget() -> None:
     transport = FakeTransport()
-    judge = JevJudge(transport, clock_ms=lambda: 1500, min_call_interval_ms=100)
+    judge = JevJudge(transport, clock_ms=lambda: 1200, min_call_interval_ms=100)
     asyncio.run(judge.judge(transcript(), now_ms=1000, allow_remote_text=True))
     second = TranscriptSignal(REF, 1010, 4, "继续")
     with pytest.raises(JevError, match="interval"):
@@ -207,6 +207,73 @@ def test_judge_preserves_sanitized_http_error_code() -> None:
         asyncio.run(judge.judge(transcript(), now_ms=1000, allow_remote_text=True))
 
 
+@pytest.mark.parametrize("status", [200, 401])
+def test_explicit_preconnect_gets_models_without_uploading_text(status: int) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(status, json={"detail": "never expose provider data"})
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            transport = HttpxJevTransport("test-key", client=client)
+            assert not seen  # Construction never contacts the server.
+            if status == 200:
+                await transport.preconnect(timeout_ms=100)
+            else:
+                with pytest.raises(JevError, match="Jev HTTP 401") as error:
+                    await transport.preconnect(timeout_ms=100)
+                assert "provider" not in str(error.value)
+            assert len(seen) == 1
+            assert seen[0].method == "GET"
+            assert str(seen[0].url) == "https://api.typesafe.ai/v1/models"
+            assert not seen[0].content
+            assert seen[0].headers["Authorization"] == "Bearer test-key"
+            await transport.close()  # Must not close a caller-owned client.
+            assert not client.is_closed
+
+    asyncio.run(run())
+
+
+def test_preconnect_deadline_and_cancellation_are_bounded_and_safe() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.1)
+        return httpx.Response(200)
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            transport = HttpxJevTransport("test-key", client=client)
+            with pytest.raises(ValueError):
+                await transport.preconnect(timeout_ms=0)
+            with pytest.raises(JevError, match="preconnect unavailable"):
+                await transport.preconnect(timeout_ms=1)
+            task = asyncio.create_task(transport.preconnect(timeout_ms=100))
+            await asyncio.sleep(0)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("received_at", [1350, 1351])
+def test_wall_clock_deadline_rejects_results_even_if_async_timer_did_not_fire(
+    received_at: int,
+) -> None:
+    judge = JevJudge(FakeTransport(), timeout_ms=350, clock_ms=lambda: received_at)
+    if received_at == 1350:
+        assert (
+            asyncio.run(
+                judge.judge(transcript(), now_ms=1000, allow_remote_text=True)
+            ).received_at_ms
+            == 1350
+        )
+    else:
+        with pytest.raises(JevError, match="exceeded deadline"):
+            asyncio.run(judge.judge(transcript(), now_ms=1000, allow_remote_text=True))
+
+
 def test_jev_rejects_empty_or_oversized_text_before_transport() -> None:
     transport = FakeTransport()
     judge = JevJudge(transport, max_transcript_chars=8)
@@ -250,6 +317,27 @@ def test_jev_cancellation_propagates_and_never_becomes_fallback_error() -> None:
     judge = JevJudge(CancelledTransport())
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(judge.judge(transcript(), now_ms=1000, allow_remote_text=True))
+
+
+def test_owned_http_client_retains_warm_connections_and_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory = httpx.AsyncClient
+    seen: list[httpx.Limits] = []
+
+    def client_factory(*, limits: httpx.Limits) -> httpx.AsyncClient:
+        seen.append(limits)
+        return factory(limits=limits)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+
+    async def run() -> None:
+        transport = HttpxJevTransport("fixture-key")
+        assert seen[0].keepalive_expiry == 60.0
+        await transport.close()
+        assert transport._client.is_closed
+
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize(

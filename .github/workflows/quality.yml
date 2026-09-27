@@ -55,5 +55,5 @@ jobs:
       - name: Installed wheel CLI smoke test without optional dependencies
         run: >-
           uv run --isolated --no-project
-          --with ./dist/turnpilot-0.1.0.dev1-py3-none-any.whl
+          --with ./dist/turnpilot-0.1.0.dev2-py3-none-any.whl
           turnpilot-file-run --help

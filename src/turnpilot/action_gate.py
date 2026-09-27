@@ -6,6 +6,8 @@ playback ownership, and directive expiry before doing anything externally.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from turnpilot.models import (
     AcousticSignal,
     Decision,
@@ -15,6 +17,7 @@ from turnpilot.models import (
     TranscriptSignal,
     TurnRef,
 )
+from turnpilot.partial_stability import PartialTranscriptStability
 from turnpilot.policy import TurnPolicy
 
 _TERMINAL = {
@@ -30,10 +33,22 @@ class ProvisionalActionGate:
 
     A candidate is explicitly armed by the caller; this does not replace a VAD
     or own a session. The original TurnPolicy remains the source of action kind.
+    ``stable_partial_ms`` is a disabled-by-default, uncalibrated experiment;
+    early partial release also requires the semantic request's actual start.
     """
 
-    def __init__(self, policy: TurnPolicy | None = None) -> None:
+    def __init__(
+        self, policy: TurnPolicy | None = None, *, stable_partial_ms: int | None = None
+    ) -> None:
         self.policy = policy or TurnPolicy()
+        # Experimental only. None preserves the original final-ASR requirement.
+        self._stability = (
+            PartialTranscriptStability(
+                stable_partial_ms, max_acoustic_age_ms=self.policy.config.max_acoustic_age_ms
+            )
+            if stable_partial_ms is not None
+            else None
+        )
         self._ref: TurnRef | None = None
         self._armed = False
         self._emitted = False
@@ -43,6 +58,8 @@ class ProvisionalActionGate:
         self._ref = None
         self._armed = False
         self._emitted = False
+        if self._stability is not None:
+            self._stability.reset()
 
     def arm(self, host: HostState, acoustic: AcousticSignal) -> bool:
         """Accept a current, non-speaking acoustic endpoint candidate."""
@@ -60,17 +77,27 @@ class ProvisionalActionGate:
         acoustic: AcousticSignal,
         transcript: TranscriptSignal | None = None,
         semantic: SemanticSignal | None = None,
+        *,
+        input_backlogged: bool = False,
+        semantic_requested_at_ms: int | None = None,
     ) -> Decision:
         """Evaluate a snapshot without executing a directive."""
         if not host.session_active:
             self.reset()
             return self._result(host, DirectiveKind.NO_ACTION, "session_inactive")
         self._select_ref(host.ref)
+        stable_partial = False
+        if self._stability is not None:
+            stable_partial = self._stability.observe(
+                host, acoustic, transcript, input_backlogged=input_backlogged
+            )
         if not self._valid_acoustic(host, acoustic):
             return self._result(host, DirectiveKind.NO_ACTION, "invalid_acoustic_observation")
         if acoustic.speech_active and self._armed:
             self._armed = False
             self.canceled_candidates += 1
+        if input_backlogged:
+            return self._result(host, DirectiveKind.WAIT, "input_backlogged")
         if host.assistant_speaking:
             self._armed = False
             # Barge-in must not wait for text or an endpoint candidate.
@@ -94,19 +121,44 @@ class ProvisionalActionGate:
             return self._result(host, DirectiveKind.WAIT, "candidate_lost")
         if decision.kind not in _TERMINAL:
             return decision
-        # Before the hard cap, final ASR plus a *causally aligned* high score
-        # is needed. The policy's semantic_complete reason is only produced
+        # By default, early release needs final ASR plus an aligned high score.
+        # The policy's semantic_complete reason is only produced
         # after its own turn/revision/age validation; fallback is not enough.
-        early = (
+        aligned_complete = decision.used_semantic and decision.reason.startswith(
+            "semantic_complete"
+        )
+        early_final = (
             transcript is not None
             and transcript.ref == host.ref
             and transcript.available_at_ms <= host.now_ms
             and transcript.is_final
-            and decision.used_semantic
-            and decision.reason.startswith("semantic_complete")
+            and aligned_complete
         )
-        if pause < self.policy.config.max_pause_ms and not early:
-            return self._result(host, DirectiveKind.WAIT, "await_final_or_max_pause")
+        # A score from a previous pause cannot authorize the partial experiment.
+        # Result-arrival time alone is insufficient: the caller must also supply
+        # the actual start time of this exact revision's semantic request.
+        early_partial = (
+            stable_partial
+            and aligned_complete
+            and self._stability is not None
+            and self._stability.started_at_ms is not None
+            and semantic is not None
+            and semantic_requested_at_ms is not None
+            and self._stability.started_at_ms
+            <= semantic_requested_at_ms
+            <= semantic.received_at_ms
+            <= host.now_ms
+        )
+        if pause < self.policy.config.max_pause_ms:
+            if not (early_final or early_partial):
+                reason = (
+                    "await_stable_partial_or_final_or_max_pause"
+                    if self._stability is not None
+                    else "await_final_or_max_pause"
+                )
+                return self._result(host, DirectiveKind.WAIT, reason)
+            if early_partial:
+                decision = replace(decision, reason="semantic_complete_stable_partial")
         self._emitted = True
         self._armed = False
         return decision
@@ -116,6 +168,8 @@ class ProvisionalActionGate:
             self._ref = ref
             self._armed = False
             self._emitted = False
+            if self._stability is not None:
+                self._stability.reset()
 
     def _valid_acoustic(self, host: HostState, acoustic: AcousticSignal) -> bool:
         age = host.now_ms - acoustic.observed_at_ms
