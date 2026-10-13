@@ -118,16 +118,27 @@ The returned `SemanticSignal` is **text evidence** with a turn, revision, and ar
 
 - **Cancelable continuation:** on a same-clock, two-turn **synthetic** trace, the direct final-ASR comparator recommended 2 responses, including 1 during resumed speech; the optional gate recommended 1 and canceled the resumed-speech candidate. Its first recommendation was 10 ms later. This validates mechanics, not user experience.
 - **Jev adds text-side filtering:** at the current 0.8 threshold, it accepted **0/20** incomplete texts from real [Easy Turn](https://huggingface.co/datasets/ASLP-lab/Easy-Turn-Testset) recordings—but also only **3/20** complete texts. That threshold is too conservative to present as a deployable policy. All 40 calls succeeded; request timings are in the [evaluation report](docs/evaluation.md).
-- **Acoustics remain a research path:** on six [SmoothConv](https://huggingface.co/datasets/qualialabsAI/SmoothConv) recordings, both the dynamic candidate and unchanged 640 ms gate cut off 6 of 10 labeled continuation pauses. No acoustic gain is established on this sample.
+- **Acoustics remain a research path:** on six [SmoothConv](https://huggingface.co/datasets/qualialabsAI/SmoothConv) recordings, both the dynamic candidate and unchanged 640 ms gate cut off 6 of 10 labeled continuation pauses. A separate 344-turn Chinese [eot-bench](https://huggingface.co/datasets/livekit/eot-bench-data) acoustic replay found identical fixed/dynamic endpoint timelines; both produced an endpoint in 87/99 evaluable long `hold` spans. This is label-span alignment, not a wrong-response rate. Neither check establishes an acoustic gain. [Protocol and limits](docs/evaluation.md#full-chinese-eot-bench-acoustic-replay-2026-10-13).
+- **Real ASR changes the comparison, not yet the quality claim:** a first-four-row, 51-second public Chinese paced-file pilot observed actual Vosk partial/final arrivals. Direct-final-ASR recommended in 3/4 files, fixed/adaptive policy in 4/4, and the optional gate in 2/4. Without human action labels or playback, those counts cannot say which policy answered correctly. [Pilot protocol](docs/evaluation.md#paced-chinese-public-audio-asr-pilot-2026-10-13).
 
-TurnPilot has a reproducible decision contract, causal replay, and bounded failure behavior. **End-to-end improvement in continuous conversations still requires same-clock streaming ASR, playback events, and human action labels.** See the [evaluation protocol](docs/evaluation.md) and [research status](docs/research.md) for denominators and limits.
+TurnPilot has a reproducible decision contract, causal replay, and bounded failure behavior. **End-to-end improvement in continuous conversations still requires same-clock real-device observations, playback events, and human action labels.** See the [evaluation protocol](docs/evaluation.md) and [research status](docs/research.md) for denominators and limits.
+
+## Where value should be proven
+
+TurnPilot is not primarily a new end-of-turn model. Its testable value is whether combining acoustic evidence, causal ASR revisions, optional Jev text judgment, and host state reduces **wrong conversation actions** at a matched audible-response latency and bounded remote-call cost. The results above establish mechanisms and expose gaps; they do not yet establish that gain.
+
+The next priorities are fluent but incorrect ASR text, missing or late final revisions, and the intent behind an interruption. User corrections during tool execution and actual playback recovery need a host that records those side effects. Each case needs its own labels and unchanged comparator; an end-of-turn label alone cannot tell us whether to answer, clarify, ignore, or yield. See the [scenario priorities and test gates](docs/evaluation.md#scenario-priorities).
+
+![Three evidence levels for TurnPilot acceptance](docs/diagrams/turnpilot-acceptance.png)
+
+[Editable acceptance diagram](docs/diagrams/turnpilot-acceptance.excalidraw) · [SVG](docs/diagrams/turnpilot-acceptance.svg). We can test causal rules on [synthetic ASR-timing events](examples/synthetic-asr-timing-trace.jsonl), acoustic endpointing across public audio, and a small paced-file run with real local ASR revisions. None establishes the full product benefit: that needs real-device playback/tool receipts and human action labels in the host.
 
 ## Included
 
 - A provider-neutral [decision contract and architecture](docs/architecture.md), with acoustic evidence kept separate from text/semantic evidence.
 - An optional [provisional action gate and content-free replay](docs/standalone-action-replay.md). The gate is opt-in and does not change `TurnPolicy` defaults.
 - A bounded local-audio scoring runtime and an opt-in Jev text adapter. Neither includes model weights or permits a text-only score to stand in for audio clarity.
-- Offline [evaluation and evidence tools](docs/evaluation.md). Bundled examples are synthetic; [current research status](docs/research.md) records what has and has not been measured.
+- Offline [evaluation and evidence tools](docs/evaluation.md). Bundled example inputs and traces are synthetic; [current research status](docs/research.md) records what has and has not been measured.
 
 For local checks, run `uv sync --locked --extra dev` followed by `uv run --no-sync pytest -q`. See [Contributing](CONTRIBUTING.md) for the complete quality gate and privacy rules.
 

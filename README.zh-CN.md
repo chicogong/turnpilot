@@ -118,16 +118,27 @@ asyncio.run(main())
 
 - **续说可撤销：**在同钟的两轮合成回放中，直接 final-ASR 基线建议回应 2 次，其中 1 次发生在续说中；可选闸门只建议 1 次，并撤销了续说中的候选。首轮建议晚 10 ms。这验证了机制，不是用户体验指标。
 - **Jev 确实提供文字侧筛选：**在 [Easy Turn](https://huggingface.co/datasets/ASLP-lab/Easy-Turn-Testset) 20 条真实录音对应的未完结文本中，现有 0.8 阈值放行 **0/20**；但完整文本也仅放行 **3/20**。这说明当前阈值过于保守，不能直接作为上线策略。40 次请求均成功，调用耗时详见[评测文档](docs/evaluation.md)。
-- **声学还在优化：**6 段 [SmoothConv](https://huggingface.co/datasets/qualialabsAI/SmoothConv) 录音的小样本对照中，动态候选和固定 640 ms 门控都在 10 个续说停顿里过早截断 6 次，尚未证明声学收益。
+- **声学还在优化：**6 段 [SmoothConv](https://huggingface.co/datasets/qualialabsAI/SmoothConv) 录音的小样本对照中，动态候选和固定 640 ms 门控都在 10 个续说停顿里过早截断 6 次。另一次 [eot-bench](https://huggingface.co/datasets/livekit/eot-bench-data) 中文 344 轮声学回放里，固定与动态端点时间序列完全相同；两臂都在 99 个可评估的长 `hold` 片段中有 87 个产生端点。这是标注片段对齐，不是真实错误回应率。两次都没有证明声学收益；见[口径和局限](docs/evaluation.md#full-chinese-eot-bench-acoustic-replay-2026-10-13)。
+- **真实 ASR 改变了对照，但尚未证明效果：**固定取公开中文语料前 4 轮、约 51 秒做本地节拍回放，记录真实 Vosk partial/final 到达。直接 final-ASR 在 3/4 文件提出回应建议，固定/动态策略在 4/4，可选闸门在 2/4。缺少人工动作标签和播放事件，不能据此判断谁回应得正确。见[试跑方案](docs/evaluation.md#paced-chinese-public-audio-asr-pilot-2026-10-13)。
 
-TurnPilot 已具备可复现的决策契约、因果回放和安全边界；**真实连续对话的端到端提升仍需同钟流式 ASR、播放事件及人工动作标签验证**。完整数字、复现命令与局限见[评测方案](docs/evaluation.md)和[研究现状](docs/research.md)。
+TurnPilot 已具备可复现的决策契约、因果回放和安全边界；**真实连续对话的端到端提升仍需同钟真实设备观察、播放事件及人工动作标签验证**。完整数字、复现命令与局限见[评测方案](docs/evaluation.md)和[研究现状](docs/research.md)。
+
+## 价值要在哪里得到证明
+
+TurnPilot 的重点不是再做一个“是否说完”模型。它需要验证的价值是：在**相同的可听回应延迟**和受控的远程调用成本下，结合声学证据、因果 ASR 修订、可选 Jev 文字判断与宿主状态，能否减少**错误的会话行动**。上面的结果验证了部分机制，也暴露了缺口；尚未证明这种收益。
+
+下一步优先检验“文字流利但 ASR 认错”、final 缺失或迟到，以及用户打断的不同意图。工具执行中的改口和误打断后的实际播放恢复，则需要能记录副作用的宿主。每类场景都要有独立标签和未改动的对照策略；单凭“是否说完”无法判断该回答、澄清、忽略还是让出话权。详见[场景优先级与验收证据](docs/evaluation.md#scenario-priorities)。
+
+![TurnPilot 三层证据验收路径](docs/diagrams/turnpilot-acceptance.png)
+
+[可编辑验收图](docs/diagrams/turnpilot-acceptance.excalidraw) · [SVG](docs/diagrams/turnpilot-acceptance.svg)。[合成 ASR 时序事件](examples/synthetic-asr-timing-trace.jsonl)可验收因果规则，公开音频可复核声学端点，也已做了小规模真实本地 ASR 修订的节拍回放；这些仍不能代替宿主中的真实设备播放/工具回执和人工动作标签，尚不能证明完整产品收益。
 
 ## 包含哪些能力
 
 - 提供服务商无关的[决策契约与架构](docs/architecture.md)，把声学证据与文字/语义证据分开。
 - 提供可选的[候选终点动作闸门与无原文回放](docs/standalone-action-replay.md)；不改变 `TurnPolicy` 默认行为。
 - 提供有界本地音频评分运行时及需明确授权的 Jev 文字适配器；不附带模型权重，也不把文字评分当作音质证据。
-- 提供离线[评估和证据工具](docs/evaluation.md)。仓库示例均为合成数据；[研究现状](docs/research.md)说明测到了什么、还缺什么。
+- 提供离线[评估和证据工具](docs/evaluation.md)。仓库附带的示例输入与轨迹均为合成数据；[研究现状](docs/research.md)说明测到了什么、还缺什么。
 
 本地验证：`uv sync --locked --extra dev`，再运行 `uv run --no-sync pytest -q`。完整质量门禁和隐私要求见[参与开发](CONTRIBUTING.md)。
 

@@ -18,6 +18,8 @@ The other scripts are optional research probes:
 | `live_jev_probe.py`, `easyturn_jev_probe.py` | Explicit opt-in to send authored or licensed text to TypeSafe; never use private transcripts without consent. |
 | `smoothconv_annotation_probe.py`, `smoothconv_audio_probe.py`, `smoothconv_event_probe.py` | Separately obtained, licensed SmoothConv annotations/audio and local model dependencies; no corpus is bundled. |
 | `eot_bench_adapter.py`, `eot_bench_tune.py` | External benchmark harness and its data; exploratory timing comparisons only. |
+| `eot_bench_zh_replay.py` | Local Chinese Arrow/Parquet and Silero model; fixed/dynamic 640 ms acoustic span alignment with aggregate-only output. Requires the `file` extra plus separately installed `pyarrow` and `soundfile`; **not** the official harness or an action benchmark. [Protocol](../docs/evaluation.md#full-chinese-eot-bench-acoustic-replay-2026-10-13). |
+| `eot_bench_zh_asr_pilot.py` | First 1–5 publisher-order Chinese Arrow rows, original start to EOF, with paced local Silero + Vosk and aggregate-only output. Requires the `file` extra and separately installed `pyarrow`; no Jev, action labels, or host playback. [Pilot](../docs/evaluation.md#paced-chinese-public-audio-asr-pilot-2026-10-13). |
 | `smartturn_audio_adapter.py`, `bounded_audio_replay.py`, `easy_turn_real_audio_probe.py` | Separately obtained model weights and licensed audio; local classification/replay is not a response-action label. |
 
 The optional inputs have **separate upstream terms** (checked 2026-09-23):

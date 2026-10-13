@@ -1,0 +1,44 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "appState": {"viewBackgroundColor": "#ffffff", "gridSize": null, "currentItemFontFamily": 8},
+  "files": {},
+  "elements": [
+    {"type":"text","id":"title","x":45,"y":30,"width":1100,"height":48,"text":"TurnPilot · 从机制到真实对话的验收路径","originalText":"TurnPilot · 从机制到真实对话的验收路径","fontSize":32,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"text","id":"subtitle","x":47,"y":87,"width":1100,"height":32,"text":"同钟、同数据、固定对照；证据层级不同，能下的结论也不同","originalText":"同钟、同数据、固定对照；证据层级不同，能下的结论也不同","fontSize":21,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#475569"},
+    {"type":"text","id":"head-input","x":60,"y":143,"width":290,"height":30,"text":"输入证据","originalText":"输入证据","fontSize":22,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+    {"type":"text","id":"head-pair","x":454,"y":143,"width":260,"height":30,"text":"同钟成对对照","originalText":"同钟成对对照","fontSize":22,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+    {"type":"text","id":"head-outcome","x":815,"y":143,"width":300,"height":30,"text":"可验收的结论","originalText":"可验收的结论","fontSize":22,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#334155"},
+
+    {"type":"rectangle","id":"r1-input","x":44,"y":188,"width":345,"height":132,"backgroundColor":"#e7f5ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r1-input-text","x":61,"y":199,"width":312,"height":112,"text":"01 · 合成时序（可跑）\nfinal 缺失 / 迟到 / 修订\n续说、轮次与代际事件","originalText":"01 · 合成时序（可跑）\nfinal 缺失 / 迟到 / 修订\n续说、轮次与代际事件","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"r1-arrow-a","x":389,"y":254,"width":54,"height":0,"points":[[0,0],[54,0]],"strokeColor":"#4a9eed","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"r1-pair","x":443,"y":188,"width":302,"height":132,"backgroundColor":"#f3f0ff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r1-pair-text","x":461,"y":199,"width":266,"height":112,"text":"Direct final-ASR\n固定 640 ms\nTurnPilot 可选动作闸门","originalText":"Direct final-ASR\n固定 640 ms\nTurnPilot 可选动作闸门","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"r1-arrow-b","x":745,"y":254,"width":54,"height":0,"points":[[0,0],[54,0]],"strokeColor":"#8b5cf6","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"r1-outcome","x":799,"y":188,"width":352,"height":132,"backgroundColor":"#e7f5ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r1-outcome-text","x":817,"y":199,"width":319,"height":112,"text":"因果 / 超时 / 旧结果丢弃\n建议动作与触发时间\n只证明机制，不证明体验","originalText":"因果 / 超时 / 旧结果丢弃\n建议动作与触发时间\n只证明机制，不证明体验","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+
+    {"type":"rectangle","id":"r2-input","x":44,"y":345,"width":345,"height":132,"backgroundColor":"#e6fcf5","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r2-input-text","x":61,"y":356,"width":312,"height":112,"text":"02 · 公开音频（可复核）\nhold / eot 停顿标签\n本地 VAD / ASR 修订","originalText":"02 · 公开音频（可复核）\nhold / eot 停顿标签\n本地 VAD / ASR 修订","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"r2-arrow-a","x":389,"y":411,"width":54,"height":0,"points":[[0,0],[54,0]],"strokeColor":"#22c55e","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"r2-pair","x":443,"y":345,"width":302,"height":132,"backgroundColor":"#f3f0ff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r2-pair-text","x":461,"y":356,"width":266,"height":112,"text":"固定 / 动态声学门控\nDirect / 可选动作闸门\n同一录音与可用时刻","originalText":"固定 / 动态声学门控\nDirect / 可选动作闸门\n同一录音与可用时刻","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"r2-arrow-b","x":745,"y":411,"width":54,"height":0,"points":[[0,0],[54,0]],"strokeColor":"#8b5cf6","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"r2-outcome","x":799,"y":345,"width":352,"height":132,"backgroundColor":"#e6fcf5","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r2-outcome-text","x":817,"y":356,"width":319,"height":112,"text":"端点 / 首建议时间\n截尾 + 积压 + 分母\n不能判定回应正确","originalText":"端点 / 首建议时间\n截尾 + 积压 + 分母\n不能判定回应正确","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+
+    {"type":"rectangle","id":"r3-input","x":44,"y":502,"width":345,"height":147,"backgroundColor":"#fff4e6","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r3-input-text","x":61,"y":513,"width":312,"height":129,"text":"03 · 宿主真实会话（待采）\n同钟音频 + ASR 修订\n播放 / 工具回执 + 人工动作标签","originalText":"03 · 宿主真实会话（待采）\n同钟音频 + ASR 修订\n播放 / 工具回执 + 人工动作标签","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"r3-arrow-a","x":389,"y":576,"width":54,"height":0,"points":[[0,0],[54,0]],"strokeColor":"#f59e0b","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"r3-pair","x":443,"y":502,"width":302,"height":147,"backgroundColor":"#f3f0ff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r3-pair-text","x":461,"y":513,"width":266,"height":129,"text":"宿主原策略 A0（单列）\nDirect / 固定 / TurnPilot\n可选 Jev；同延迟预算","originalText":"宿主原策略 A0（单列）\nDirect / 固定 / TurnPilot\n可选 Jev；同延迟预算","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+    {"type":"arrow","id":"r3-arrow-b","x":745,"y":576,"width":54,"height":0,"points":[[0,0],[54,0]],"strokeColor":"#8b5cf6","strokeWidth":3,"endArrowhead":"arrow"},
+    {"type":"rectangle","id":"r3-outcome","x":799,"y":502,"width":352,"height":147,"backgroundColor":"#fff4e6","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":2,"roundness":{"type":3}},
+    {"type":"text","id":"r3-outcome-text","x":817,"y":513,"width":319,"height":129,"text":"错动作 / 误打断 / 副作用\n首次可听回应延迟 + 成本\n才可判断真实收益","originalText":"错动作 / 误打断 / 副作用\n首次可听回应延迟 + 成本\n才可判断真实收益","fontSize":19,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#14213d"},
+
+    {"type":"rectangle","id":"footer","x":44,"y":679,"width":1107,"height":61,"backgroundColor":"#f1f3f5","fillStyle":"solid","strokeColor":"#94a3b8","strokeWidth":1,"roundness":{"type":3}},
+    {"type":"text","id":"footer-text","x":62,"y":693,"width":1070,"height":38,"text":"当前仅有离线验收：本地 ASR 有真实修订，但无宿主播放与人工动作标签，不能宣称端到端优于直接 ASR。","originalText":"当前仅有离线验收：本地 ASR 有真实修订，但无宿主播放与人工动作标签，不能宣称端到端优于直接 ASR。","fontSize":18,"fontFamily":8,"lineHeight":1.25,"strokeColor":"#475569"}
+  ]
+}

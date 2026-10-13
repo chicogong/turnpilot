@@ -14,4 +14,4 @@ Start with the [English](../README.md) or [中文](../README.zh-CN.md) README fo
 
 The [examples index](../examples/README.md) separates dependency-free synthetic examples from optional provider/model/data probes. [Contributing](../CONTRIBUTING.md) lists the local quality checks. The guides keep implemented mechanisms, host integration, and measured results distinct.
 
-[Decision diagram](diagrams/turnpilot-decision-flow.svg) · [Editable source](diagrams/turnpilot-decision-flow.excalidraw) · [ASR comparison diagram](diagrams/asr-vs-turnpilot.svg) · [Editable comparison source](diagrams/asr-vs-turnpilot.excalidraw)
+[Decision diagram](diagrams/turnpilot-decision-flow.svg) · [Editable source](diagrams/turnpilot-decision-flow.excalidraw) · [ASR comparison diagram](diagrams/asr-vs-turnpilot.svg) · [Editable comparison source](diagrams/asr-vs-turnpilot.excalidraw) · [Acceptance diagram](diagrams/turnpilot-acceptance.svg) · [Editable acceptance source](diagrams/turnpilot-acceptance.excalidraw)
